@@ -1,20 +1,21 @@
                 section         .text
 
                 global          _start
+                %define         size    256
 
 _start:
 
-                sub             rsp, 6 * 256 * 8
+                sub             rsp, 6 * size * 8
 
-                lea             r8, [rsp + 3 * 256 * 8]
-                lea             r9, [rsp + 4 * 256 * 8]
-                lea             r12, [rsp + 5 * 256 * 8]
-                lea             rdi, [rsp + 2 * 256 * 8]
-                mov             rcx, 256
+                lea             r8, [rsp + 3 * size * 8]
+                lea             r9, [rsp + 4 * size * 8]
+                lea             r12, [rsp + 5 * size * 8]
+                lea             rdi, [rsp + 2 * size * 8]
+                mov             rcx, size
                 call            read_long
-                lea             rdi, [rsp + 256 * 8]
+                lea             rdi, [rsp + size * 8]
                 call            read_long
-                lea             rsi, [rsp + 2 * 256 * 8]
+                lea             rsi, [rsp + 2 * size * 8]
                 call            mul_long_long
 
                 call            write_long
@@ -92,27 +93,31 @@ mul_long_long:
 ; shifts rdi to left
 ;    rdi -- address of original long number
 ;    r13 -- number of shifts
+;    rcx -- length of long numbers in qwords
 ; result:
 ;    result is writen to rdi
 shift:
                 push            rdi
                 push            rcx
                 push            r13
-                lea             rcx, [r13]
+                push            rax
+                mov             r14, rcx
+                mov             rcx, r13
                 mov             rbx, 4294967296
                 cmp             rcx, 0
                 je              end_shift
 .loop:
-                lea             r13, [rcx]
-                mov             rcx, 256
+                mov             r13, rcx
+                mov             rcx, r14
                 call            mul_long_short
                 call            mul_long_short
-                lea             rcx, [r13]
+                mov             rcx, r13
                 dec             rcx
 
                 jnz             .loop
 
 end_shift:
+                pop             rax
                 pop             r13
                 pop             rcx
                 pop             rdi
@@ -505,4 +510,5 @@ print_string:
 invalid_char_msg:
                 db              "Invalid character: "
 invalid_char_msg_size: equ             $ - invalid_char_msg
+
 

@@ -1,22 +1,21 @@
                 section         .text
 
                 global          _start
-                %define         size    256
+                %define         size    128
 
 _start:
 
-                sub             rsp, 6 * size * 8
-
-                lea             r8, [rsp + 3 * size * 8]
-                lea             r9, [rsp + 4 * size * 8]
-                lea             r12, [rsp + 5 * size * 8]
-                lea             rdi, [rsp + 2 * size * 8]
+                sub             rsp, 5 * size * 8 + 8
                 mov             rcx, size
-                call            read_long
+                lea             r12, [rsp + 3 * size * 8 + 8]
                 lea             rdi, [rsp + size * 8]
                 call            read_long
-                lea             rsi, [rsp + 2 * size * 8]
+                mov             rdi, rsp
+                call            read_long
+                lea             rsi, [rsp + size * 8]
                 call            mul_long_long
+                mov             rdi, r12
+                mov             rcx, size * 2
 
                 call            write_long
 
@@ -63,107 +62,40 @@ mul_long_long:
                 push            rdi
                 push            rsi
                 push            rcx
-                mov             r10, rcx
-                call            copy_rdi_to_r8
-                call            copy_rsi_to_r9
-                xor             r13, r13
+                push            r12
 
+                mov             r10, rcx
+                mov             r8, rdi
+                mov             r9, rsi
+                mov             r13, r12
+                lea             r11, [r8 + 2 * size * 8]
                 clc
 
 .loop:
+                mov             rdi, r11
+                inc             rcx
+                call            set_zero
+                dec             rcx
+                call            copy_r8_to_rdi
+                inc             rcx
                 mov             rbx, [r9]
                 lea             r9, [r9 + 8]
-                call            copy_r8_to_rdi
                 call            mul_long_short
-                call            copy_r12_to_rsi
-                call            shift
+                mov             rsi, rdi
+                mov             rdi, r13
+                lea             r13, [r13 + 8]
                 call            add_long_long
-                call            copy_rdi_to_r12
-                lea             r13, [r13 + 1]
+                dec             rcx
                 dec             r10
                 jnz             .loop
 
-                call            copy_r12_to_rdi
+                pop             r12
                 pop             rcx
                 pop             rsi
                 pop             rdi
                 pop             rax
                 ret
 
-; shifts rdi to left
-;    rdi -- address of original long number
-;    r13 -- number of shifts
-;    rcx -- length of long numbers in qwords
-; result:
-;    result is writen to rdi
-shift:
-                push            rdi
-                push            rcx
-                push            r13
-                push            rax
-                mov             r14, rcx
-                mov             rcx, r13
-                mov             rbx, 4294967296
-                cmp             rcx, 0
-                je              end_shift
-.loop:
-                mov             r13, rcx
-                mov             rcx, r14
-                call            mul_long_short
-                call            mul_long_short
-                mov             rcx, r13
-                dec             rcx
-
-                jnz             .loop
-
-end_shift:
-                pop             rax
-                pop             r13
-                pop             rcx
-                pop             rdi
-                ret
-
-
-; copies a long number
-;    rdi -- address of long number to copy
-;    r8 -- address of long number to copy to
-copy_rdi_to_r8:
-                push            rdi
-                push            r8
-                push            rcx
-.loop:
-                mov             rax, [rdi]
-                lea             rdi, [rdi + 8]
-                mov             [r8], rax
-                lea             r8, [r8 + 8]
-                dec             rcx
-                jnz             .loop
-
-                pop             rcx
-                pop             r8
-                pop             rdi
-                ret
-
-; copies a long number
-;    rsi -- address of long number to copy
-;    r9 -- address of long number to copy to
-copy_rsi_to_r9:
-                push            rsi
-                push            r9
-                push            rcx
-.loop:
-                mov             rax, [rsi]
-                lea             rsi, [rsi + 8]
-                mov             [r9], rax
-                lea             r9, [r9 + 8]
-                dec             rcx
-                jnz             .loop
-
-
-                pop             rcx
-                pop             r9
-                pop             rsi
-                ret
 
 ; copies a long number
 ;    r8 -- address of long number to copy
@@ -184,67 +116,6 @@ copy_r8_to_rdi:
                 pop             rdi
                 pop             r8
                 ret
-
-; copies a long number
-;    r12 -- address of long number to copy
-;    rsi -- address of long number to copy to
-copy_r12_to_rsi:
-                push            r12
-                push            rsi
-                push            rcx
-.loop:
-                mov             rax, [r12]
-                lea             r12, [r12 + 8]
-                mov             [rsi], rax
-                lea             rsi, [rsi + 8]
-                dec             rcx
-                jnz             .loop
-
-                pop             rcx
-                pop             rsi
-                pop             r12
-                ret
-
-; copies a long number
-;    rdi -- address of long number to copy
-;    r12 -- address of long number to copy to
-copy_rdi_to_r12:
-                push            rdi
-                push            r12
-                push            rcx
-.loop:
-                mov             rax, [rdi]
-                lea             rdi, [rdi + 8]
-                mov             [r12], rax
-                lea             r12, [r12 + 8]
-                dec             rcx
-                jnz             .loop
-
-                pop             rcx
-                pop             r12
-                pop             rdi
-                ret
-
-; copies a long number
-;    r12 -- address of long number to copy
-;    rdi -- address of long number to copy to
-copy_r12_to_rdi:
-                push            r12
-                push            rdi
-                push            rcx
-.loop:
-                mov             rax, [rdi]
-                lea             rdi, [rdi + 8]
-                mov             [r12], rax
-                lea             r12, [r12 + 8]
-                dec             rcx
-                jnz             .loop
-
-                pop             rcx
-                pop             rdi
-                pop             r12
-                ret
-
 
 ; adds 64-bit number to long number
 ;    rdi -- address of summand #1 (long number)
@@ -510,5 +381,6 @@ print_string:
 invalid_char_msg:
                 db              "Invalid character: "
 invalid_char_msg_size: equ             $ - invalid_char_msg
+
 
 

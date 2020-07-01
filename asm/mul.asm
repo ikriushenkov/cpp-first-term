@@ -5,9 +5,9 @@
 
 _start:
 
-                sub             rsp, 5 * size * 8 + 8
+                sub             rsp, 4 * size * 8
                 mov             rcx, size
-                lea             r12, [rsp + 3 * size * 8 + 8]
+                lea             r12, [rsp + 2 * size * 8]
                 lea             rdi, [rsp + size * 8]
                 call            read_long
                 mov             rdi, rsp
@@ -56,7 +56,7 @@ add_long_long:
 ;    rsi -- address of multiplier #2 (long number)
 ;    rcx -- length of long numbers in qwords
 ; result:
-;    product is written to rdi
+;    product is written to r12
 mul_long_long:
                 push            rax
                 push            rdi
@@ -68,27 +68,26 @@ mul_long_long:
                 mov             r8, rdi
                 mov             r9, rsi
                 mov             r13, r12
-                lea             r11, [r8 + 2 * size * 8]
-                clc
+                sub             rsp, size * 8 + 8
+                mov             r11, rsp
 
 .loop:
                 mov             rdi, r11
                 inc             rcx
                 call            set_zero
-                dec             rcx
                 call            copy_r8_to_rdi
-                inc             rcx
                 mov             rbx, [r9]
-                lea             r9, [r9 + 8]
                 call            mul_long_short
                 mov             rsi, rdi
                 mov             rdi, r13
-                lea             r13, [r13 + 8]
                 call            add_long_long
                 dec             rcx
+                lea             r9, [r9 + 8]
+                lea             r13, [r13 + 8]
                 dec             r10
                 jnz             .loop
 
+                add             rsp, size * 8 + 8
                 pop             r12
                 pop             rcx
                 pop             rsi
@@ -100,10 +99,12 @@ mul_long_long:
 ; copies a long number
 ;    r8 -- address of long number to copy
 ;    rdi -- address of long number to copy to
+;    rcx -- (length + 1) of long numbers in qwords
 copy_r8_to_rdi:
                 push            r8
                 push            rdi
                 push            rcx
+                dec             rcx
 .loop:
                 mov             rax, [r8]
                 lea             r8, [r8 + 8]

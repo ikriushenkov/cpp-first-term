@@ -57,6 +57,7 @@ struct vector
 
 private:
     void increase_capacity();
+    void copy(T* from, T* to, size_t size);
 
 private:
     T* data_;
@@ -80,9 +81,7 @@ vector <T>::vector(vector const& other) {
     data_ = nullptr;
     reserve(other.size_);
     size_ = other.size_;
-    for (size_t i = 0; i < size_; ++i) {
-        new(data_ + i)T(other.data_[i]);
-    }
+    copy(other.data_, data_, size_);
 }
 
 template <typename T>
@@ -177,25 +176,13 @@ template <typename T>
 void vector<T>::reserve(size_t c) {
     if (c > capacity_) {
         T* other = static_cast<T*>(operator new(c * sizeof(T)));
-        size_t i;
-        try {
-            for (i = 0; i < size_; ++i) {
-                new (other + i) T(data_[i]);
-            }
-
-            std::swap(data_, other);
-            for (i = capacity_; i > 0; --i) {
-                other[i - 1].~T();
-            }
-            operator delete(other);
-            capacity_ = c;
-        } catch (...) {
-            for (; i > 0; --i) {
-                other[i - 1].~T();
-            }
-            operator delete(other);
-            throw;
+        copy(data_, other, size_);
+        std::swap(data_, other);
+        for (size_t i = capacity_; i > 0; --i) {
+            other[i - 1].~T();
         }
+        operator delete(other);
+        capacity_ = c;
     }
 }
 
@@ -210,9 +197,10 @@ void vector<T>::shrink_to_fit() {
     if (size_ != capacity_) {
         T* other;
         other = static_cast<T*>(operator new(size_ * sizeof(T)));
-        for (size_t i = 0; i < size_; ++i) {
-            new(other + i) T(data_[i]);
-        }
+        copy(data_, other, size_);
+        // for (size_t i = 0; i < size_; ++i) {
+        //    new(other + i) T(data_[i]);
+        //}
         std::swap(data_, other);
         for (size_t i = size_; i > 0; --i) {
             other[i - 1].~T();
@@ -308,6 +296,21 @@ T* vector<T>::erase(const_iterator left, const_iterator right) {
     }
     size_ -= d;
     return (data_ + (left - data_));
+}
+template <typename T>
+void vector<T>::copy(T* from, T* to, size_t size) {
+    size_t i = 0;
+    try {
+        for(; i < size; ++i) {
+            new (to + i) T(from[i]);
+        }
+    } catch (...) {
+        for (; i > 0; --i) {
+            to[i - 1].~T();
+        }
+        operator delete(to);
+        throw;
+    }
 }
 
 template <typename T>

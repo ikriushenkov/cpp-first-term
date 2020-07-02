@@ -1,7 +1,9 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
-#include <iostream>
+#include <cstddef>
+#include <algorithm>
+using std::swap;
 
 template <typename T>
 struct vector
@@ -54,9 +56,9 @@ struct vector
 
 private:
     void increase_capacity();
-    void copy(T* from, T* to, size_t size);
+    static void copy(T* from, T* to, size_t size);
     void new_buffer(size_t new_capacity);
-    void destroy_data(T* data, size_t capacity);
+    static void destroy_data(T* data, size_t capacity);
 
 private:
     T* data_;
@@ -67,10 +69,10 @@ private:
 
 
 template <typename T>
-vector <T>::vector() : data_(nullptr), size_(0), capacity_(0) {}
+vector<T>::vector() : data_(nullptr), size_(0), capacity_(0) {}
 
 template <typename T>
-vector <T>::vector(vector const& other) : vector() {
+vector<T>::vector(vector const& other) : vector() {
     if (other.size_ > 0) {
         new_buffer(other.size_);
         copy(other.data_, data_, other.size_);
@@ -80,7 +82,7 @@ vector <T>::vector(vector const& other) : vector() {
 
 template <typename T>
 vector<T>& vector<T>::operator=(vector const& other) {
-    vector <T> tmp(other);
+    vector<T> tmp(other);
     swap(tmp);
     return *this;
 }
@@ -103,7 +105,7 @@ T const& vector<T>::operator[](size_t i) const {
 }
 
 template <typename T>
-T* vector <T>::data() {
+T* vector<T>::data() {
     return data_;
 }
 
@@ -161,7 +163,7 @@ bool vector<T>::empty() const {
 
 
 template <typename T>
-size_t vector <T>::capacity() const {
+size_t vector<T>::capacity() const {
     return capacity_;
 }
 
@@ -187,17 +189,16 @@ void vector<T>::shrink_to_fit() {
 
 template <typename T>
 void vector<T>::clear() {
-    for (size_t i = size_; i > 0; --i) {
-        data_[i - 1].~T();
-    }
+    destroy_data(data_, size_);
     size_ = 0;
 }
 
 template <typename T>
 void vector<T>::swap(vector& other) {
-    std::swap(size_, other.size_);
-    std::swap(capacity_, other.capacity_);
-    std::swap(data_, other.data_);
+    using std::swap;
+    swap(size_, other.size_);
+    swap(capacity_, other.capacity_);
+    swap(data_, other.data_);
 }
 
 template <typename T>
@@ -242,10 +243,9 @@ typename vector<T>::iterator vector<T>::erase(const_iterator left, const_iterato
     for (size_t i = it; i < size_; ++i) {
         std::swap(data_[i - d], data_[i]);
     }
-    for (size_t i = size_; i > (size_ - d); --i) {
-        data_[i - 1].~T();
+    for (size_t i = 0; i < d; ++i) {
+        pop_back();
     }
-    size_ -= d;
     return (data_ + (left - data_));
 }
 

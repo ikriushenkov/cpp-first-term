@@ -70,10 +70,12 @@ template <typename T>
 vector <T>::vector() : data_(nullptr), size_(0), capacity_(0) {}
 
 template <typename T>
-vector <T>::vector(vector const& other) : data_(nullptr), size_(0), capacity_(0) {
-    reserve(other.size_);
-    size_ = other.size_;
-    copy(other.data_, data_, size_);
+vector <T>::vector(vector const& other) : vector() {
+    if (other.size_ > 0) {
+        new_buffer(other.size_);
+        copy(other.data_, data_, other.size_);
+        size_ = other.size_;
+    }
 }
 
 template <typename T>
@@ -250,9 +252,15 @@ typename vector<T>::iterator vector<T>::erase(const_iterator left, const_iterato
 template <typename T>
 void vector<T>::new_buffer(size_t new_capacity) {
     T* new_data = static_cast<T*>(operator new(new_capacity * sizeof(T)));
-    copy(data_, new_data, size_);
+    try {
+        copy(data_, new_data, size_);
+    } catch(...) {
+        operator delete(new_data);
+        throw;
+    }
     std::swap(data_, new_data);
     destroy_data(new_data, size_);
+    operator delete(new_data);
     capacity_ = new_capacity;
 }
 
@@ -271,7 +279,7 @@ void vector<T>::copy(T* from, T* to, size_t size) {
 
 template <typename T>
 void vector<T>::increase_capacity() {
-    capacity_ == 0 ? reserve(1) : reserve(capacity_ << 1);
+    reserve(capacity_ == 0 ? 1 : capacity_ << 1);
 }
 
 template <typename T>
@@ -279,7 +287,6 @@ void vector<T>::destroy_data(T* data, size_t capacity) {
     for (size_t i = capacity; i > 0; --i) {
         data[i - 1].~T();
     }
-    operator delete(data);
 }
 
 #endif // VECTOR_H

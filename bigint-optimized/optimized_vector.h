@@ -195,6 +195,7 @@ private:
     void convert_to_small() {
         small_object = true;
         uint32_t temp = vector.big->data_.back();
+        delete_one();
         vector.small = temp;
     }
 

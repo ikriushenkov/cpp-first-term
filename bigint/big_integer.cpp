@@ -6,9 +6,12 @@
 #include <algorithm>
 #include <cmath>
 
-typedef unsigned __int128 uint128;
+using uint128 = unsigned __int128;
 
-const uint128 b = static_cast<uint128>(UINT32_MAX) + 1;
+const uint128 BASE = static_cast<uint128>(UINT32_MAX) + 1;
+
+const size_t STEP = 9;
+const uint32_t BASE_STRING = 1000000000;
 
 big_integer::big_integer() : sign(false), data_(1, 0) {}
 
@@ -25,16 +28,14 @@ big_integer::big_integer(int a) : sign(a < 0) {
 big_integer::big_integer(uint32_t a) : sign(false), data_(1, a) {}
 
 big_integer::big_integer(std::string const& str) : big_integer() {
-    const size_t step = 9;
-    const uint32_t base = 1000000000;
-    for (size_t i = (str[0] == '-'); i < str.size(); i += step) {
+    for (size_t i = (str[0] == '-'); i < str.size(); i += STEP) {
         uint32_t t = 0;
-        size_t cur = step;
-        if (str.size() - i < step) {
+        size_t cur = STEP;
+        if (str.size() - i < STEP) {
             cur = str.size() - i;
             *this *= static_cast<uint32_t>(std::pow(10, cur));
         } else {
-            *this *= base;
+            *this *= BASE_STRING;
         }
         for (size_t j = 0; j < cur; ++j) {
             t = t * 10 + str[i + j] - '0';
@@ -42,6 +43,7 @@ big_integer::big_integer(std::string const& str) : big_integer() {
         *this += t;
     }
     sign = str[0] == '-';
+    remove_zeros();
 }
 
 big_integer::~big_integer() = default;
@@ -89,11 +91,7 @@ uint32_t overflow(uint64_t n) {
 
 big_integer& big_integer::operator+=(big_integer const& rhs) {
     if (sign) {
-        if (rhs.sign) {
-            *this = -(-*this + -rhs);
-        } else {
-            *this = rhs - -*this;
-        }
+        *this = rhs.sign ? -(-*this + -rhs) : (rhs - -*this);
         return *this;
     } else {
         if (rhs.sign) {
@@ -115,16 +113,13 @@ big_integer& big_integer::operator+=(big_integer const& rhs) {
     if (of) {
         data_.push_back(of);
     }
+    remove_zeros();
     return *this;
 }
 
 big_integer& big_integer::operator-=(big_integer const& rhs) {
     if (sign) {
-        if (rhs.sign) {
-            *this = -rhs - -*this;
-        } else {
-            *this = -(-*this + rhs);
-        }
+        *this = rhs.sign ? (-rhs - -*this) : -(-*this + rhs);
         return *this;
     } else {
         if (rhs.sign) {
@@ -192,11 +187,7 @@ big_integer& big_integer::operator/=(big_integer const& rhs) {
         return *this;
     }
     if (sign ^ rhs.sign) {
-        if (sign) {
-            *this = -(-*this / rhs);
-        } else {
-            *this = -(*this / -rhs);
-        }
+        *this = sign ? -(-*this / rhs) : -(*this / -rhs);
         return *this;
     }
     if (rhs.data_.size() == 1) {
@@ -204,8 +195,9 @@ big_integer& big_integer::operator/=(big_integer const& rhs) {
         return *this;
     }
     size_t n = data_.size(), m = rhs.data_.size();
-    uint32_t f = b / (static_cast<uint64_t>(rhs.data_[m - 1]) + 1);
-    big_integer r = *this * f, d = rhs * f;
+    uint32_t f = BASE / (static_cast<uint64_t>(rhs.data_[m - 1]) + 1);
+    big_integer r = *this * f;
+    big_integer d = rhs * f;
     big_integer q;
     q.data_.resize(n - m + 1);
     r.data_.push_back(0);
@@ -226,8 +218,6 @@ big_integer& big_integer::operator/=(big_integer const& rhs) {
 }
 
 big_integer& big_integer::operator%=(big_integer const& rhs) {
-    big_integer mem = *this / rhs;
-    big_integer mem1 = mem * rhs;
     *this = *this - (*this / rhs) * rhs;
     return *this;
 }
@@ -292,18 +282,16 @@ std::string to_string(big_integer const& a) {
     }
     std::string res;
     big_integer temp(a);
-    const size_t step = 9;
-    const uint32_t base = 1000000000;
     while (temp != 0) {
-        std::string t = std::to_string((temp % base).data_[0]);
+        std::string t = std::to_string((temp % BASE_STRING).data_[0]);
         std::reverse(t.begin(), t.end());
         if (temp.data_.size() > 1) {
-            while (t.size() < step) {
+            while (t.size() < STEP) {
                 t.push_back('0');
             }
         }
         res += t;
-        temp /= base;
+        temp /= BASE_STRING;
     }
     if (a.sign) {
         res.push_back('-');
@@ -313,8 +301,11 @@ std::string to_string(big_integer const& a) {
 }
 
 void big_integer::remove_zeros() {
-    for (size_t i = data_.size(); i > 1 && data_[i - 1] == 0; --i) {
+    while (data_.size() > 1 && data_.back() == 0) {
         data_.pop_back();
+    }
+    if (sign && data_.size() == 1 && data_[0] == 0) {
+        sign = false;
     }
 }
 
@@ -437,10 +428,10 @@ big_integer& big_integer::operator>>=(int rhs) {
 
 uint32_t big_integer::trial(big_integer &d, size_t k, size_t m) {
     size_t km = k + m;
-    uint128 r3 = (static_cast<uint128>(data_[km]) * b + data_[km - 1]) * b + data_[km - 2];
-    uint64_t d2 = static_cast<uint64_t>(d.data_[m - 1]) * b + d.data_[m - 2];
+    uint128 r3 = (static_cast<uint128>(data_[km]) * BASE + data_[km - 1]) * BASE + data_[km - 2];
+    uint64_t d2 = static_cast<uint64_t>(d.data_[m - 1]) * BASE + d.data_[m - 2];
     uint64_t t = r3 / d2;
-    return std::min(t, static_cast<uint64_t>(b - 1));
+    return std::min(t, static_cast<uint64_t>(BASE - 1));
 }
 
 
@@ -459,7 +450,7 @@ bool big_integer::smaller(big_integer &dq, size_t k, size_t m) {
 void big_integer::difference(big_integer &dq, size_t k, size_t m) {
     size_t borrow = 0;
     for (size_t i = 0; i <= m; ++i) {
-        uint64_t diff = static_cast<uint64_t>(data_[i + k]) - dq.data_[i] - borrow + b;
+        uint64_t diff = static_cast<uint64_t>(data_[i + k]) - dq.data_[i] - borrow + BASE;
         data_[i + k] = diff;
         borrow = 1 - overflow(diff);
     }

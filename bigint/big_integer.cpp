@@ -203,15 +203,15 @@ big_integer& big_integer::operator/=(big_integer const& rhs) {
     q.data_.resize(n - m + 1);
     r.data_.push_back(0);
     for (ptrdiff_t k = n - m; k >= 0; --k) {
-        uint32_t qt = r.trial(d, static_cast<uint64_t>(k), m);
+        uint32_t qt = r.trial(d, k, m);
         big_integer dq = d * qt;
         dq.data_.resize(dq.data_.size() + m + 1, 0);
-        if (r.smaller(dq, static_cast<uint64_t>(k), m)) {
+        if (r.smaller(dq, k, m)) {
             --qt;
             dq = big_integer(d) * qt;
         }
         q.data_[k] = qt;
-        r.difference(dq, static_cast<uint64_t>(k), m);
+        r.difference(dq, k, m);
     }
     q.remove_zeros();
     *this = q;
@@ -429,10 +429,9 @@ big_integer& big_integer::operator>>=(int rhs) {
 
 uint32_t big_integer::trial(big_integer &d, size_t k, size_t m) {
     size_t km = k + m;
-    uint128 r3 = (static_cast<uint128>(data_[km]) * BASE + data_[km - 1]) * BASE + data_[km - 2];
-    uint64_t d2 = static_cast<uint64_t>(d.data_[m - 1]) * BASE + d.data_[m - 2];
-    uint64_t t = r3 / d2;
-    return std::min(t, static_cast<uint64_t>(BASE - 1));
+    uint128 r3 = (data_[km] * BASE + data_[km - 1]) * BASE + data_[km - 2];
+    uint64_t d2 = d.data_[m - 1] * BASE + d.data_[m - 2];
+    return std::min(r3 / d2, BASE - 1);
 }
 
 
@@ -449,9 +448,9 @@ bool big_integer::smaller(big_integer &dq, size_t k, size_t m) {
 }
 
 void big_integer::difference(big_integer &dq, size_t k, size_t m) {
-    size_t borrow = 0;
+    uint32_t borrow = 0;
     for (size_t i = 0; i <= m; ++i) {
-        uint64_t diff = static_cast<uint64_t>(data_[i + k]) - dq.data_[i] - borrow + BASE;
+        uint64_t diff = BASE + data_[i + k] - dq.data_[i] - borrow;
         data_[i + k] = diff;
         borrow = 1 - overflow(diff);
     }

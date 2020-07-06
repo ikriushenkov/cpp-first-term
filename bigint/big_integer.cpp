@@ -12,6 +12,7 @@ const uint128 BASE = static_cast<uint128>(UINT32_MAX) + 1;
 
 const size_t STEP = 9;
 const uint32_t BASE_STRING = 1000000000;
+const big_integer ZERO = big_integer(0);
 
 big_integer::big_integer() : sign(false), data_(1, 0) {}
 
@@ -153,7 +154,7 @@ big_integer& big_integer::operator*=(big_integer const& rhs) {
     uint32_t of = 0;
     for (size_t i = 0; i < data_.size(); ++i) {
         for (size_t j = 0; j < rhs.data_.size() || of > 0; ++j) {
-            uint64_t temp = res.data_[i + j] + (uint64_t) data_[i] * (j < rhs.data_.size() ? rhs.data_[j] : 0) + of;
+            uint64_t temp = res.data_[i + j] + static_cast<uint64_t>(data_[i]) * (j < rhs.data_.size() ? rhs.data_[j] : 0) + of;
             of = overflow(temp);
             res.data_[i + j] = temp;
         }
@@ -277,7 +278,7 @@ big_integer big_integer::operator--(int) {
 }
 
 std::string to_string(big_integer const& a) {
-    if (a.data_.size() == 1 && a.data_[0] == 0) {
+    if (a == ZERO) {
         return "0";
     }
     std::string res;

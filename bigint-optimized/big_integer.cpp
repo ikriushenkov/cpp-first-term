@@ -202,16 +202,16 @@ big_integer& big_integer::operator/=(big_integer const& rhs) {
     big_integer q;
     q.data_.resize(n - m + 1);
     r.data_.push_back(0);
-    for (ptrdiff_t k = n - m; k >= 0; --k) {
-        uint32_t qt = r.trial(d, k, m);
+    for (size_t k = n - m + 1; k > 0; --k) {
+        uint32_t qt = r.trial(d, k - 1, m);
         big_integer dq = d * qt;
         dq.data_.resize(dq.data_.size() + m + 1, 0);
-        if (r.smaller(dq, k, m)) {
+        if (r.smaller(dq, k - 1, m)) {
             --qt;
             dq = big_integer(d) * qt;
         }
-        q.data_[k] = qt;
-        r.difference(dq, k, m);
+        q.data_[k - 1] = qt;
+        r.difference(dq, k - 1, m);
     }
     q.remove_zeros();
     *this = q;
@@ -283,7 +283,7 @@ std::string to_string(big_integer const& a) {
     }
     std::string res;
     big_integer temp(a);
-    while (temp != 0) {
+    while (temp != ZERO) {
         std::string t = std::to_string((temp % BASE_STRING).data_[0]);
         std::reverse(t.begin(), t.end());
         if (temp.data_.size() > 1) {

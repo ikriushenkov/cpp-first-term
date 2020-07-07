@@ -38,7 +38,11 @@ struct optimized_vector {
             if (small_object) {
                 convert_to_big();
             } else {
-                convert_to_small();
+                prep_for_changes();
+                vector.big->data_.clear();
+                vector.big->data_.push_back(other.vector.small);
+                vector.big->count = 1;
+                return *this;
             }
         }
         small_object = other.small_object;
@@ -127,15 +131,16 @@ struct optimized_vector {
         } else {
             prep_for_changes();
             vector.big->data_.pop_back();
-            if (vector.big->data_.size() == 1) {
-                convert_to_small();
-            }
         }
     }
 
     friend bool operator==(optimized_vector const& a, optimized_vector const& b) {
         if (a.small_object ^ b.small_object) {
-            return false;
+            if (a.small_object) {
+                return b.vector.big->data_.size() == 1 && b.vector.big->data_.back() == a.vector.small;
+            } else {
+                return a.vector.big->data_.size() == 1 && a.vector.big->data_.back() == b.vector.small;
+            }
         } else {
             if (a.small_object) {
                 return a.vector.small == b.vector.small;
@@ -182,13 +187,6 @@ private:
         uint32_t temp = vector.small;
         vector.big = new vector_with_count();
         vector.big->data_.push_back(temp);
-    }
-
-    void convert_to_small() {
-        small_object = true;
-        uint32_t temp = vector.big->data_.back();
-        delete_one();
-        vector.small = temp;
     }
 
 };

@@ -6,15 +6,9 @@
 #include <cstdint>
 
 struct optimized_vector {
-    optimized_vector() {
-        small_object = true;
-        empty = true;
-        vector.small = 0;
-    }
+    optimized_vector() : small_object(true), empty(true), vector({0}) {}
 
-    explicit optimized_vector(size_t size, uint32_t val = 0) {
-        small_object = (size == 1);
-        empty = false;
+    explicit optimized_vector(size_t size, uint32_t val = 0) : small_object(size <= 1), empty(size == 0), vector({0}) {
         if (small_object) {
             vector.small = val;
         } else {
@@ -22,9 +16,7 @@ struct optimized_vector {
         }
     }
 
-    optimized_vector(optimized_vector const &other) {
-        small_object = other.small_object;
-        empty = other.empty;
+    optimized_vector(optimized_vector const &other) : small_object(other.small_object), empty(other.empty), vector({0}) {
         if (!empty) {
             if (small_object) {
                 vector.small = other.vector.small;

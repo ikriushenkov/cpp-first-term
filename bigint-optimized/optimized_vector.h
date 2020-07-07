@@ -6,24 +6,22 @@
 #include <cstdint>
 
 struct optimized_vector {
-    optimized_vector() : small_object(true), empty(true), vector({0}) {}
+    optimized_vector() : small_object(true), empty(true), vector({}) {}
 
-    explicit optimized_vector(size_t size, uint32_t val = 0) : small_object(size <= 1), empty(size == 0), vector({0}) {
+    explicit optimized_vector(size_t size, uint32_t val = 0) : small_object(size <= 1), empty(size == 0), vector({}) {
         if (small_object) {
-            vector.small = val;
+            vector.small = small_vector(size, val);
         } else {
             vector.big = new vector_with_count(size, val);
         }
     }
 
-    optimized_vector(optimized_vector const &other) : small_object(other.small_object), empty(other.empty), vector({0}) {
-        if (!empty) {
-            if (small_object) {
-                vector.small = other.vector.small;
-            } else {
-                vector.big = other.vector.big;
-                ++vector.big->count;
-            }
+    optimized_vector(optimized_vector const &other) : small_object(other.small_object), empty(other.empty), vector({}) {
+        if (small_object) {
+            vector.small = other.vector.small;
+        } else {
+            vector.big = other.vector.big;
+            ++vector.big->count;
         }
     }
 
@@ -40,7 +38,9 @@ struct optimized_vector {
             } else {
                 prep_for_changes();
                 vector.big->data_.clear();
-                vector.big->data_.push_back(other.vector.small);
+                for (size_t i = 0; i < other.vector.small.size_; ++i) {
+                    vector.big->data_.push_back(other.vector.small.data_[i]);
+                }
                 vector.big->count = 1;
                 return *this;
             }
@@ -61,7 +61,7 @@ struct optimized_vector {
 
     uint32_t& operator[](size_t i) {
         if (small_object) {
-            return vector.small;
+            return vector.small.data_[i];
         } else {
             prep_for_changes();
             return vector.big->data_[i];
@@ -70,51 +70,47 @@ struct optimized_vector {
 
     uint32_t const& operator[](size_t i) const {
         if (small_object) {
-            return vector.small;
+            return vector.small.data_[i];
         } else {
             return vector.big->data_[i];
         }
     }
 
     void push_back(uint32_t const val) {
-        if (empty) {
-            empty = false;
-            vector.small = val;
-        } else {
-            if (small_object) {
+        if (small_object) {
+            if (vector.small.size_ == small_vector::SIZE) {
                 convert_to_big();
                 vector.big->data_.push_back(val);
             } else {
-                prep_for_changes();
-                vector.big->data_.push_back(val);
+                vector.small.data_[vector.small.size_++] = val;
             }
+        } else {
+            prep_for_changes();
+            vector.big->data_.push_back(val);
         }
     }
 
     size_t size() const {
-        if (empty) {
-            return 0;
-        } else {
-            return small_object ? 1 : vector.big->data_.size();
-        }
+        return small_object ? vector.small.size_ : vector.big->data_.size();
     }
 
     void resize(size_t new_size, uint32_t val = 0) {
-        if (new_size <= 1) {
-            if (empty) {
-                vector.small = val;
-            }
-        } else {
-            if (small_object) {
+        if (small_object) {
+            if (new_size <= small_vector::SIZE) {
+                while (vector.small.size_ < new_size) {
+                    vector.small.data_[vector.small.size_++] = val;
+                }
+                return;
+            } else {
                 convert_to_big();
             }
-            vector.big->data_.resize(new_size, val);
         }
+        vector.big->data_.resize(new_size, val);
     }
 
     uint32_t& back() {
         if (small_object) {
-            return vector.small;
+            return vector.small.data_[vector.small.size_ - 1];
         } else {
             prep_for_changes();
             return vector.big->data_.back();
@@ -122,12 +118,12 @@ struct optimized_vector {
     }
 
     uint32_t const& back() const {
-        return small_object ? vector.small : vector.big->data_.back();
+        return small_object ? vector.small.data_[vector.small.size_ - 1] : vector.big->data_.back();
     }
 
     void pop_back() {
         if (small_object) {
-            empty = true;
+            --vector.small.size_;
         } else {
             prep_for_changes();
             vector.big->data_.pop_back();
@@ -137,9 +133,9 @@ struct optimized_vector {
     friend bool operator==(optimized_vector const& a, optimized_vector const& b) {
         if (a.small_object ^ b.small_object) {
             if (a.small_object) {
-                return b.vector.big->data_.size() == 1 && b.vector.big->data_.back() == a.vector.small;
+                return b.vector.big->data_ == a.vector.small;
             } else {
-                return a.vector.big->data_.size() == 1 && a.vector.big->data_.back() == b.vector.small;
+                return a.vector.big->data_ == b.vector.small;
             }
         } else {
             if (a.small_object) {
@@ -160,11 +156,63 @@ private:
         vector_with_count(std::vector <uint32_t> const &other) : data_(other), count(1) {}
     };
 
+    struct small_vector {
+        static const size_t SIZE = sizeof(vector_with_count) / sizeof(uint32_t);
+        uint32_t data_[SIZE];
+        size_t size_;
+
+        small_vector() : data_(), size_(0) {}
+        small_vector(size_t size, uint32_t val) : data_(), size_(size) {
+            for (size_t i = 0; i < size; ++i) {
+                data_[i] = val;
+            }
+        }
+        small_vector(std::vector <uint32_t> const &other) : data_(), size_(other.size()) {
+            for (size_t i = 0; i < other.size(); ++i) {
+                data_[i] = other[i];
+            }
+        }
+
+        small_vector& operator=(small_vector const& other) {
+            size_ = other.size_;
+            for (size_t i = 0; i < size_; ++i) {
+                data_[i] = other.data_[i];
+            }
+            return *this;
+        }
+
+        friend bool operator==(std::vector<uint32_t> const& a, small_vector const& b) {
+            if (a.size() == b.size_) {
+                for (size_t i = 0; i < a.size(); ++i) {
+                    if (a[i] != b.data_[i]) {
+                        return false;
+                    }
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        friend bool operator==(small_vector const& a, small_vector const& b) {
+            if (a.size_ == b.size_) {
+                for (size_t i = 0; i < a.size_; ++i) {
+                    if (a.data_[i] != b.data_[i]) {
+                        return false;
+                    }
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
     bool small_object;
     bool empty;
 
     union {
-        uint32_t small;
+        small_vector small;
         vector_with_count *big;
     } vector;
 
@@ -184,9 +232,11 @@ private:
 
     void convert_to_big() {
         small_object = false;
-        uint32_t temp = vector.small;
+        small_vector temp = vector.small;
         vector.big = new vector_with_count();
-        vector.big->data_.push_back(temp);
+        for (size_t i = 0; i < small_vector::SIZE; ++i) {
+            vector.big->data_.push_back(temp.data_[i]);
+        }
     }
 
 };

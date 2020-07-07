@@ -6,9 +6,9 @@
 #include <cstdint>
 
 struct optimized_vector {
-    optimized_vector() : small_object(true), empty(true), vector({}) {}
+    optimized_vector() : small_object(true), vector({}) {}
 
-    explicit optimized_vector(size_t size, uint32_t val = 0) : small_object(size <= 1), empty(size == 0), vector({}) {
+    explicit optimized_vector(size_t size, uint32_t val = 0) : small_object(size <= 1), vector({}) {
         if (small_object) {
             vector.small = small_vector(size, val);
         } else {
@@ -16,7 +16,7 @@ struct optimized_vector {
         }
     }
 
-    optimized_vector(optimized_vector const &other) : small_object(other.small_object), empty(other.empty), vector({}) {
+    optimized_vector(optimized_vector const &other) : small_object(other.small_object), vector({}) {
         if (small_object) {
             vector.small = other.vector.small;
         } else {
@@ -46,7 +46,6 @@ struct optimized_vector {
             }
         }
         small_object = other.small_object;
-        empty = other.empty;
         if (small_object) {
             vector.small = other.vector.small;
         } else {
@@ -157,7 +156,7 @@ private:
     };
 
     struct small_vector {
-        static const size_t SIZE = sizeof(vector_with_count) / sizeof(uint32_t);
+        static constexpr size_t SIZE = (sizeof(vector_with_count) - sizeof(size_t)) / sizeof(uint32_t);
         uint32_t data_[SIZE];
         size_t size_;
 
@@ -165,11 +164,6 @@ private:
         small_vector(size_t size, uint32_t val) : data_(), size_(size) {
             for (size_t i = 0; i < size; ++i) {
                 data_[i] = val;
-            }
-        }
-        small_vector(std::vector <uint32_t> const &other) : data_(), size_(other.size()) {
-            for (size_t i = 0; i < other.size(); ++i) {
-                data_[i] = other[i];
             }
         }
 
@@ -209,7 +203,6 @@ private:
     };
 
     bool small_object;
-    bool empty;
 
     union {
         small_vector small;

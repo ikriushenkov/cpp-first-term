@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <algorithm>
-using std::swap;
 
 template <typename T>
 struct vector
